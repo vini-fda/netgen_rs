@@ -1,9 +1,128 @@
 # netgen-rs
 
-This is a Rust translation of [NETGEN](http://archive.dimacs.rutgers.edu/pub/netflow/generators/network/netgen/), a program for generating large-scale capacitated assignment, transportation, and minimum-cost flow network problems, as described in:
+A Rust port of [NETGEN](http://archive.dimacs.rutgers.edu/pub/netflow/generators/network/netgen/), the classic network flow problem generator described in:
 
 > Klingman, Napier, and Stutz, "NETGEN: A program for generating large scale capacitated assignment, transportation, and minimum-cost flow network problems," *Management Science* 20, 814–820 (1974).
 
-## Original C version
+Generates minimum-cost flow, assignment, and maximum flow problems in [DIMACS format](http://lpsolve.sourceforge.net/5.5/DIMACS_mcf.htm). Produces **byte-identical output** to the reference C implementation for the same inputs.
 
-The reference C code used for this translation is the **BCJL-patched version** (found in `netgen_original/`), which includes bug fixes by Joseph Cheriyan (Bertsekas, Cheriyan, Jayakumar, Lam) applied to Norbert Schlenker's C implementation. The patches fix integer overflow issues in the original code that caused infinite loops when generating networks with more than 2^15 nodes, by casting intermediate products to `double` in critical computations (`sinks_per_source` calculation and the `pick_head` loop guard), and adding bounds checks on node indices.
+## Install
+
+```sh
+cargo install --path .
+```
+
+## CLI usage
+
+`netgen_rs` reads problem specifications from **stdin**, one per line. Each line contains 15 whitespace-separated integers:
+
+```
+seed  problem_number  nodes  sources  sinks  density  mincost  maxcost  supply  tsources  tsinks  hicost%  capacitated%  mincap  maxcap
+```
+
+Multiple problems can be provided in sequence. Processing stops at EOF or when seed/problem ≤ 0.
+
+```sh
+# Generate a min-cost flow problem
+echo "13502460 1 512 10 10 2000 5 500 1000 3 3 20 80 50 2000" | netgen_rs
+
+# Generate an assignment problem (sources+sinks=nodes, sources=sinks, supply=sources)
+echo "12345 1 100 50 50 500 1 100 50 0 0 0 0 1 100" | netgen_rs
+
+# Generate a max flow problem (mincost=maxcost=1)
+echo "99999 1 200 5 5 1000 1 1 500 2 2 20 50 10 100" | netgen_rs
+
+# Multiple problems from a file
+netgen_rs < problems.txt > output.dimacs
+```
+
+### Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `seed` | Positive random seed (deterministic output for same seed) |
+| `problem_number` | Problem identifier (appears in output header) |
+| `nodes` | Total number of nodes |
+| `sources` | Number of source nodes (including transshipment) |
+| `sinks` | Number of sink nodes (including transshipment) |
+| `density` | Number of arcs to generate |
+| `mincost` | Minimum arc cost |
+| `maxcost` | Maximum arc cost |
+| `supply` | Total supply across all sources |
+| `tsources` | Number of transshipment sources |
+| `tsinks` | Number of transshipment sinks |
+| `hicost%` | Percentage of skeleton arcs assigned maximum cost (0–100) |
+| `capacitated%` | Percentage of arcs to be capacitated (0–100) |
+| `mincap` | Minimum arc capacity |
+| `maxcap` | Maximum arc capacity |
+
+### Problem type detection
+
+The problem type is inferred from the parameters (matching the original NETGEN behavior):
+
+- **Assignment** — `sources + sinks = nodes`, `sources = sinks`, `supply = sources`, and no transshipment nodes
+- **Maximum flow** — `mincost = maxcost = 1`
+- **Minimum-cost flow** — everything else
+
+## Library usage
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+netgen_rs = { path = "." }  # or publish and use a version
+```
+
+### Generate a network
+
+```rust
+use netgen_rs::{NetgenParams, generate};
+
+let params = NetgenParams {
+    nodes: 512,
+    sources: 10,
+    sinks: 10,
+    density: 2000,
+    mincost: 5,
+    maxcost: 500,
+    supply: 1000,
+    tsources: 3,
+    tsinks: 3,
+    hicost: 20,
+    capacitated: 80,
+    mincap: 50,
+    maxcap: 2000,
+};
+
+let result = generate(13502460, &params).unwrap();
+
+for arc in &result.arcs {
+    println!("{} -> {}: cost={}, cap={}", arc.from, arc.to, arc.cost, arc.capacity);
+}
+
+for (i, &s) in result.supply.iter().enumerate() {
+    if s != 0 {
+        println!("node {}: supply={}", i + 1, s);
+    }
+}
+```
+
+### Write DIMACS output
+
+```rust
+use netgen_rs::{NetgenParams, generate, write_dimacs};
+
+let params = NetgenParams::from_slice(&[512, 10, 10, 2000, 5, 500, 1000, 3, 3, 20, 80, 50, 2000]);
+let result = generate(13502460, &params).unwrap();
+
+// Write to stdout
+let stdout = std::io::stdout();
+write_dimacs(&mut stdout.lock(), 13502460, 1, &params, &result).unwrap();
+
+// Or get as a string
+let dimacs = netgen_rs::to_dimacs_string(13502460, 1, &params).unwrap();
+```
+
+## Provenance
+
+The reference C code (in `netgen_original/`) is the **BCJL-patched version** of Norbert Schlenker's C implementation, with overflow fixes by Joseph Cheriyan that prevent infinite loops for networks with more than 2^15 nodes. This Rust port preserves the same overflow fixes using `f64` casts and removes the static `MAXNODES`/`MAXARCS` limits in favor of dynamic allocation.
