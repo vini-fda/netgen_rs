@@ -1,6 +1,6 @@
 # netgen-rs
 
-This is a Rust translation of NETGEN, a program for generating large-scale capacitated assignment, transportation, and minimum-cost flow network problems, as described in:
+This is a Rust translation of [NETGEN](http://archive.dimacs.rutgers.edu/pub/netflow/generators/network/netgen/), a program for generating large-scale capacitated assignment, transportation, and minimum-cost flow network problems, as described in:
 
 > Klingman, Napier, and Stutz, "NETGEN: A program for generating large scale capacitated assignment, transportation, and minimum-cost flow network problems," *Management Science* 20, 814–820 (1974).
 
