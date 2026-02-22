@@ -69,11 +69,10 @@ The problem type is inferred from the parameters (matching the original NETGEN b
 
 ## Library usage
 
-Add to your `Cargo.toml`:
+Add the library to your `Cargo.toml`:
 
-```toml
-[dependencies]
-netgen_rs = { path = "." }  # or publish and use a version
+```sh
+cargo add netgen_rs
 ```
 
 ### Generate a network
