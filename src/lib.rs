@@ -49,6 +49,47 @@ impl NetgenParams {
         }
     }
 
+    /// Validate parameters, returning the first error found.
+    pub fn validate(&self) -> Result<(), ParamError> {
+        if self.nodes <= 0 {
+            return Err(ParamError::NonPositiveNodes);
+        }
+        if self.sources <= 0 {
+            return Err(ParamError::NonPositiveSources);
+        }
+        if self.sinks <= 0 {
+            return Err(ParamError::NonPositiveSinks);
+        }
+        if self.sources + self.sinks > self.nodes {
+            return Err(ParamError::SourcesSinksExceedNodes);
+        }
+        if self.nodes > self.density {
+            return Err(ParamError::DensityTooLow);
+        }
+        if self.mincost > self.maxcost {
+            return Err(ParamError::MinCostExceedsMaxCost);
+        }
+        if self.supply < self.sources {
+            return Err(ParamError::SupplyTooLow);
+        }
+        if self.tsources > self.sources {
+            return Err(ParamError::TSourcesExceedSources);
+        }
+        if self.tsinks > self.sinks {
+            return Err(ParamError::TSinksExceedSinks);
+        }
+        if self.hicost < 0 || self.hicost > 100 {
+            return Err(ParamError::HiCostOutOfRange);
+        }
+        if self.capacitated < 0 || self.capacitated > 100 {
+            return Err(ParamError::CapacitatedOutOfRange);
+        }
+        if self.mincap > self.maxcap {
+            return Err(ParamError::MinCapExceedsMaxCap);
+        }
+        Ok(())
+    }
+
     /// Detect the problem type from the parameters.
     pub fn problem_type(&self) -> ProblemType {
         if (self.sources - self.tsources) + (self.sinks - self.tsinks) == self.nodes
@@ -63,6 +104,54 @@ impl NetgenParams {
         }
     }
 }
+
+/// Specific parameter validation errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParamError {
+    NonPositiveNodes,
+    NonPositiveSources,
+    NonPositiveSinks,
+    SourcesSinksExceedNodes,
+    DensityTooLow,
+    MinCostExceedsMaxCost,
+    SupplyTooLow,
+    TSourcesExceedSources,
+    TSinksExceedSinks,
+    HiCostOutOfRange,
+    CapacitatedOutOfRange,
+    MinCapExceedsMaxCap,
+}
+
+impl fmt::Display for ParamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParamError::NonPositiveNodes => write!(f, "nodes must be positive"),
+            ParamError::NonPositiveSources => write!(f, "sources must be positive"),
+            ParamError::NonPositiveSinks => write!(f, "sinks must be positive"),
+            ParamError::SourcesSinksExceedNodes => {
+                write!(f, "sources + sinks must not exceed nodes")
+            }
+            ParamError::DensityTooLow => {
+                write!(f, "density (arc count) must be at least nodes")
+            }
+            ParamError::MinCostExceedsMaxCost => write!(f, "mincost must not exceed maxcost"),
+            ParamError::SupplyTooLow => write!(f, "supply must be at least sources"),
+            ParamError::TSourcesExceedSources => {
+                write!(f, "transshipment sources must not exceed sources")
+            }
+            ParamError::TSinksExceedSinks => {
+                write!(f, "transshipment sinks must not exceed sinks")
+            }
+            ParamError::HiCostOutOfRange => write!(f, "hicost percentage must be 0..=100"),
+            ParamError::CapacitatedOutOfRange => {
+                write!(f, "capacitated percentage must be 0..=100")
+            }
+            ParamError::MinCapExceedsMaxCap => write!(f, "mincap must not exceed maxcap"),
+        }
+    }
+}
+
+impl std::error::Error for ParamError {}
 
 /// A single arc in the generated network.
 #[derive(Debug, Clone)]
@@ -93,21 +182,32 @@ pub enum ProblemType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetgenError {
     BadSeed,
-    BadParms,
+    BadParms(ParamError),
 }
 
 impl fmt::Display for NetgenError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NetgenError::BadSeed => write!(f, "NETGEN requires a positive random seed"),
-            NetgenError::BadParms => {
-                write!(f, "Inconsistent parameter settings - check the input")
-            }
+            NetgenError::BadParms(e) => write!(f, "invalid parameters: {e}"),
         }
     }
 }
 
-impl std::error::Error for NetgenError {}
+impl std::error::Error for NetgenError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            NetgenError::BadParms(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<ParamError> for NetgenError {
+    fn from(e: ParamError) -> Self {
+        NetgenError::BadParms(e)
+    }
+}
 
 /// Generate a network flow problem.
 pub fn generate(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenError> {

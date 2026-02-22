@@ -8,26 +8,12 @@ pub fn netgen(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenEr
     if seed <= 0 {
         return Err(NetgenError::BadSeed);
     }
+    params.validate()?;
+
     let nodes = params.nodes;
     let sources = params.sources;
     let sinks = params.sinks;
     let density = params.density;
-
-    if (nodes <= 0)
-        || (nodes > density)
-        || (sources <= 0)
-        || (sinks <= 0)
-        || (sources + sinks > nodes)
-        || (params.mincost > params.maxcost)
-        || (params.supply < sources)
-        || (params.tsources > sources)
-        || (params.tsinks > sinks)
-        || (params.hicost < 0 || params.hicost > 100)
-        || (params.capacitated < 0 || params.capacitated > 100)
-        || (params.mincap > params.maxcap)
-    {
-        return Err(NetgenError::BadParms);
-    }
 
     let mut rng = Rng::new(seed);
     let mut arcs: Vec<Arc> = Vec::new();
