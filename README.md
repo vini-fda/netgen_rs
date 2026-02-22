@@ -1,4 +1,7 @@
 # netgen-rs
+[![CI](https://github.com/vini-fda/netgen_rs/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/vini-fda/netgen_rs/actions/workflows/rust.yml)
+[![Docs](https://docs.rs/netgen_rs/badge.svg)](https://docs.rs/netgen_rs)
+[![Crates.io](https://img.shields.io/crates/v/netgen_rs.svg)](https://crates.io/crates/netgen_rs)
 
 A Rust port of [NETGEN](http://archive.dimacs.rutgers.edu/pub/netflow/generators/network/netgen/), the classic network flow problem generator described in:
 
