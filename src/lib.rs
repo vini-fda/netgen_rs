@@ -1,6 +1,10 @@
 //! TODO: top-level doc comment
 
 // TODO: implement type-safe input struct
+// TODO: implement type-safe output struct
+// TODO: Convenience method to write output to any `io::Write` implementor
+// TODO: Convenience method to write output to file (use BufWrite)
+// TODO: Convenience method to write output to string
 
 // TODO: implement solver
 
