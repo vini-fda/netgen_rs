@@ -1,7 +1,62 @@
-//! NETGEN network flow problem generator (Rust port).
+//! NETGEN, a classic min-cost flow / assignment / max-flow generator.
 //!
-//! A faithful translation of the classic NETGEN generator (Klingman, Napier, Stutz, 1974)
-//! with BCJL overflow fixes.
+//! Produces DIMACS-formatted flow problem instances (assignment, max flow, or
+//! min-cost flow) matching the original NETGEN (Klingman, Napier, Stutz, 1974)
+//! implementation, including the BCJL overflow fixes.
+//!
+//! This crate is a pure-Rust rewrite of the
+//! [reference C implementation](http://archive.dimacs.rutgers.edu/pub/netflow/generators/network/netgen/)
+//! shipped with the DIMACS network flow challenge.
+//!
+//! # Usage
+//!
+//! ## Quick start
+//!
+//! ```rust
+//! use netgen_rs::{generate, NetgenParams};
+//!
+//! let params = NetgenParams {
+//!     nodes: 512,
+//!     sources: 10,
+//!     sinks: 10,
+//!     density: 2000,
+//!     mincost: 5,
+//!     maxcost: 500,
+//!     supply: 1000,
+//!     tsources: 3,
+//!     tsinks: 3,
+//!     hicost_pct: 20,
+//!     capacitated_pct: 80,
+//!     mincap: 50,
+//!     maxcap: 2000,
+//! };
+//! let result = generate(13502460, &params).unwrap();
+//! println!("Generated {} arcs", result.arcs.len());
+//! ```
+//!
+//! ## Writing DIMACS output
+//!
+//! Use [`write_dimacs`] to stream into any `io::Write`, or
+//! [`to_dimacs_string`] to collect into a string.
+//!
+//! ```rust
+//! use netgen_rs::{generate, write_dimacs, NetgenParams};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let params = NetgenParams::from_slice(&[
+//!     512, 10, 10, 2000, 5, 500, 1000, 3, 3, 20, 80, 50, 2000,
+//! ])?;
+//! let dimacs = netgen_rs::to_dimacs_string(13502460, 1, &params)?;
+//! println!("{}", dimacs.lines().next().unwrap());
+//!
+//! let result = generate(13502460, &params)?;
+//! let stdout = std::io::stdout();
+//! write_dimacs(&mut stdout.lock(), 13502460, 1, &params, &result)?;
+//! # Ok(()) }
+//! ```
+//!
+//! The 13 integers mirror the original `parms[]` array (see
+//! [`NetgenParams`]).
 
 mod index_list;
 mod netgen;
