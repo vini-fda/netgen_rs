@@ -6,7 +6,7 @@ description = "Rust rewrite of NETGEN, a min-cost flow, assignment, and maximum 
 license = "MIT"
 repository = "https://github.com/vini-fda/netgen_rs"
 keywords = ["network-flow", "min-cost-flow", "dimacs", "graph-generator"]
-categories = ["network", "graphs"]
+categories = ["command-line-utilities", "algorithms"]
 readme = "README.md"
 
 [dependencies]
