@@ -14,27 +14,30 @@ cargo install --path .
 
 ## CLI usage
 
-`netgen_rs` reads problem specifications from **stdin**, one per line. Each line contains 15 whitespace-separated integers:
+Parameters can be passed as **command-line arguments** or via **stdin**. Each problem requires 15 whitespace-separated integers:
 
 ```
 seed  problem_number  nodes  sources  sinks  density  mincost  maxcost  supply  tsources  tsinks  hicost%  capacitated%  mincap  maxcap
 ```
 
-Multiple problems can be provided in sequence. Processing stops at EOF or when seed/problem ≤ 0.
-
 ```sh
-# Generate a min-cost flow problem
+# Pass parameters directly as arguments
+netgen_rs 13502460 1 512 10 10 2000 5 500 1000 3 3 20 80 50 2000
+
+# Or pipe via stdin (supports multiple problems in sequence)
 echo "13502460 1 512 10 10 2000 5 500 1000 3 3 20 80 50 2000" | netgen_rs
 
-# Generate an assignment problem (sources+sinks=nodes, sources=sinks, supply=sources)
-echo "12345 1 100 50 50 500 1 100 50 0 0 0 0 1 100" | netgen_rs
+# Assignment problem (sources+sinks=nodes, sources=sinks, supply=sources)
+netgen_rs 12345 1 100 50 50 500 1 100 50 0 0 0 0 1 100
 
-# Generate a max flow problem (mincost=maxcost=1)
-echo "99999 1 200 5 5 1000 1 1 500 2 2 20 50 10 100" | netgen_rs
+# Max flow problem (mincost=maxcost=1)
+netgen_rs 99999 1 200 5 5 1000 1 1 500 2 2 20 50 10 100
 
 # Multiple problems from a file
 netgen_rs < problems.txt > output.dimacs
 ```
+
+When no arguments are given, `netgen_rs` reads from stdin. Processing stops at EOF or when seed/problem ≤ 0.
 
 ### Parameters
 
