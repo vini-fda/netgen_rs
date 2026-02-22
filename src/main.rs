@@ -17,13 +17,11 @@ fn main() {
     let tokens: Box<dyn Iterator<Item = &str>>;
 
     if args.is_empty() {
-        // No arguments — read from stdin
         let mut buf = String::new();
         io::stdin().read_to_string(&mut buf).unwrap();
         input = buf;
         tokens = Box::new(input.split_whitespace());
     } else {
-        // Arguments provided on the command line
         input = args.join(" ");
         tokens = Box::new(input.split_whitespace());
     };
@@ -53,16 +51,22 @@ fn main() {
             };
         }
 
-        let params = netgen_rs::NetgenParams::from_slice(&parms);
-
-        let result = match netgen_rs::generate(seed, &params) {
-            Ok(r) => r,
+        let params = match netgen_rs::NetgenParams::from_slice(&parms) {
+            Ok(p) => p,
             Err(e) => {
-                eprintln!("{e}");
+                eprintln!("Error: {e}");
                 std::process::exit(1);
             }
         };
 
-        netgen_rs::write_dimacs(&mut out, seed, problem, &params, &result).unwrap();
+        let result = match netgen_rs::generate(seed, &params) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Error: {e}");
+                std::process::exit(1);
+            }
+        };
+        netgen_rs::write_dimacs(&mut out, seed, problem, &params, &result)
+            .expect("writing DIMACS output");
     }
 }

@@ -10,7 +10,11 @@ mod random;
 use std::fmt;
 use std::io::{self, Write};
 
-/// Parameters for network generation, replacing the raw `parms[]` array from the C code.
+/// Parameters for network generation.
+///
+/// All fields are validated at construction time. Use [`NetgenParams::new`] or
+/// [`NetgenParams::from_slice`] to create an instance, or construct manually
+/// and call [`NetgenParams::validate`].
 #[derive(Debug, Clone)]
 pub struct NetgenParams {
     pub nodes: i64,
@@ -22,34 +26,58 @@ pub struct NetgenParams {
     pub supply: i64,
     pub tsources: i64,
     pub tsinks: i64,
-    pub hicost: i64,
-    pub capacitated: i64,
+    pub hicost_pct: i64,
+    pub capacitated_pct: i64,
     pub mincap: i64,
     pub maxcap: i64,
 }
 
 impl NetgenParams {
-    /// Create from a slice of 13 values (matching the C `parms[]` array order).
-    pub fn from_slice(parms: &[i64]) -> Self {
-        assert!(parms.len() >= 13);
-        NetgenParams {
-            nodes: parms[0],
-            sources: parms[1],
-            sinks: parms[2],
-            density: parms[3],
-            mincost: parms[4],
-            maxcost: parms[5],
-            supply: parms[6],
-            tsources: parms[7],
-            tsinks: parms[8],
-            hicost: parms[9],
-            capacitated: parms[10],
-            mincap: parms[11],
-            maxcap: parms[12],
-        }
+    /// Create validated parameters.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        nodes: i64,
+        sources: i64,
+        sinks: i64,
+        density: i64,
+        mincost: i64,
+        maxcost: i64,
+        supply: i64,
+        tsources: i64,
+        tsinks: i64,
+        hicost_pct: i64,
+        capacitated_pct: i64,
+        mincap: i64,
+        maxcap: i64,
+    ) -> Result<Self, ParamError> {
+        let params = NetgenParams {
+            nodes,
+            sources,
+            sinks,
+            density,
+            mincost,
+            maxcost,
+            supply,
+            tsources,
+            tsinks,
+            hicost_pct,
+            capacitated_pct,
+            mincap,
+            maxcap,
+        };
+        params.validate()?;
+        Ok(params)
     }
 
-    /// Validate parameters, returning the first error found.
+    /// Create from a slice of 13 values (matching the C `parms[]` array order).
+    pub fn from_slice(parms: &[i64]) -> Result<Self, ParamError> {
+        assert!(parms.len() >= 13);
+        Self::new(
+            parms[0], parms[1], parms[2], parms[3], parms[4], parms[5], parms[6], parms[7],
+            parms[8], parms[9], parms[10], parms[11], parms[12],
+        )
+    }
+
     pub fn validate(&self) -> Result<(), ParamError> {
         if self.nodes <= 0 {
             return Err(ParamError::NonPositiveNodes);
@@ -78,10 +106,10 @@ impl NetgenParams {
         if self.tsinks > self.sinks {
             return Err(ParamError::TSinksExceedSinks);
         }
-        if self.hicost < 0 || self.hicost > 100 {
+        if self.hicost_pct < 0 || self.hicost_pct > 100 {
             return Err(ParamError::HiCostOutOfRange);
         }
-        if self.capacitated < 0 || self.capacitated > 100 {
+        if self.capacitated_pct < 0 || self.capacitated_pct > 100 {
             return Err(ParamError::CapacitatedOutOfRange);
         }
         if self.mincap > self.maxcap {
@@ -178,40 +206,34 @@ pub enum ProblemType {
     MinCostFlow,
 }
 
-/// Errors that can occur during generation.
+/// Errors that may occur while running the generator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetgenError {
     BadSeed,
-    BadParms(ParamError),
+    TooBig,
+    BadParms,
+    AllocationFailure,
 }
 
 impl fmt::Display for NetgenError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NetgenError::BadSeed => write!(f, "NETGEN requires a positive random seed"),
-            NetgenError::BadParms(e) => write!(f, "invalid parameters: {e}"),
+            NetgenError::BadSeed => write!(f, "seed must be positive"),
+            NetgenError::TooBig => write!(f, "problem size exceeds limits"),
+            NetgenError::BadParms => write!(f, "invalid parameters"),
+            NetgenError::AllocationFailure => write!(f, "allocation failure"),
         }
     }
 }
 
-impl std::error::Error for NetgenError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            NetgenError::BadParms(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<ParamError> for NetgenError {
-    fn from(e: ParamError) -> Self {
-        NetgenError::BadParms(e)
-    }
-}
+impl std::error::Error for NetgenError {}
 
 /// Generate a network flow problem.
 pub fn generate(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenError> {
-    netgen::netgen(seed, params)
+    if seed <= 0 {
+        return Err(NetgenError::BadSeed);
+    }
+    Ok(netgen::netgen(seed, params))
 }
 
 /// Write the DIMACS-format header comments.
@@ -236,8 +258,12 @@ pub fn write_dimacs_header(
     writeln!(w, "c     Sources:            {:10}", params.tsources)?;
     writeln!(w, "c     Sinks:              {:10}", params.tsinks)?;
     writeln!(w, "c   Skeleton arcs -")?;
-    writeln!(w, "c     With max cost:      {:10}%", params.hicost)?;
-    writeln!(w, "c     Capacitated:        {:10}%", params.capacitated)?;
+    writeln!(w, "c     With max cost:      {:10}%", params.hicost_pct)?;
+    writeln!(
+        w,
+        "c     Capacitated:        {:10}%",
+        params.capacitated_pct
+    )?;
     writeln!(w, "c   Minimum arc capacity: {:10}", params.mincap)?;
     write!(w, "c   Maximum arc capacity: {:10}", params.maxcap)?;
     Ok(())

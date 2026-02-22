@@ -91,8 +91,8 @@ let params = NetgenParams {
     supply: 1000,
     tsources: 3,
     tsinks: 3,
-    hicost: 20,
-    capacitated: 80,
+    hicost_pct: 20,
+    capacitated_pct: 80,
     mincap: 50,
     maxcap: 2000,
 };
@@ -115,7 +115,8 @@ for (i, &s) in result.supply.iter().enumerate() {
 ```rust
 use netgen_rs::{NetgenParams, generate, write_dimacs};
 
-let params = NetgenParams::from_slice(&[512, 10, 10, 2000, 5, 500, 1000, 3, 3, 20, 80, 50, 2000]);
+let params = NetgenParams::from_slice(&[512, 10, 10, 2000, 5, 500, 1000, 3, 3, 20, 80, 50, 2000])
+    .expect("valid params");
 let result = generate(13502460, &params).unwrap();
 
 // Write to stdout

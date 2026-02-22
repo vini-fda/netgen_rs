@@ -19,14 +19,11 @@ fn build_c_reference() {
         let out_dir = manifest_dir.join("target").join("test-c");
         std::fs::create_dir_all(&out_dir).unwrap();
 
-        // Create patched copies with random -> ng_random to avoid macOS conflict
         let tmp_dir = out_dir.join("patched");
         std::fs::create_dir_all(&tmp_dir).unwrap();
 
         for file in &["netgen.c", "index.c", "random.c", "netgen.h"] {
             let content = std::fs::read_to_string(c_dir.join(file)).unwrap();
-            // Use a simple word-boundary replacement: random( -> ng_random(
-            // and "long random" -> "long ng_random", but preserve "set_random"
             let patched = content
                 .replace("random(", "ng_random(")
                 .replace("set_ng_random", "set_random");
@@ -76,7 +73,6 @@ fn run_c(input: &str) -> String {
 }
 
 fn run_rust(input: &str) -> String {
-    // Parse the input the same way main.rs does
     let mut tokens = input.split_whitespace();
     let mut result = String::new();
 
@@ -94,7 +90,7 @@ fn run_rust(input: &str) -> String {
             *p = tokens.next().unwrap().parse().unwrap();
         }
 
-        let params = netgen_rs::NetgenParams::from_slice(&parms);
+        let params = netgen_rs::NetgenParams::from_slice(&parms).unwrap();
         let gen_result = netgen_rs::generate(seed, &params).unwrap();
         let mut buf = Vec::new();
         netgen_rs::write_dimacs(&mut buf, seed, problem, &params, &gen_result).unwrap();

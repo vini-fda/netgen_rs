@@ -2,14 +2,9 @@
 
 use crate::index_list::IndexList;
 use crate::random::Rng;
-use crate::{Arc, NetgenError, NetgenParams, NetgenResult};
+use crate::{Arc, NetgenParams, NetgenResult};
 
-pub fn netgen(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenError> {
-    if seed <= 0 {
-        return Err(NetgenError::BadSeed);
-    }
-    params.validate()?;
-
+pub fn netgen(seed: i64, params: &NetgenParams) -> NetgenResult {
     let nodes = params.nodes;
     let sources = params.sources;
     let sinks = params.sinks;
@@ -32,7 +27,7 @@ pub fn netgen(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenEr
         && sources == params.supply
     {
         create_assignment(params, &mut rng, &mut arcs, &mut supply, &mut nodes_left);
-        return Ok(NetgenResult { arcs, supply });
+        return NetgenResult { arcs, supply };
     }
 
     create_supply(sources_u, params.supply, &mut rng, &mut supply);
@@ -142,11 +137,11 @@ pub fn netgen(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenEr
             while it == tail_arr[i] {
                 handle.remove(head_arr[i]);
                 let mut cap = params.supply;
-                if rng.next(1, 100) <= params.capacitated {
+                if rng.next(1, 100) <= params.capacitated_pct {
                     cap = supply[source - 1].max(params.mincap);
                 }
                 let mut cost = params.maxcost;
-                if rng.next(1, 100) > params.hicost {
+                if rng.next(1, 100) > params.hicost_pct {
                     cost = rng.next(params.mincost, params.maxcost);
                 }
                 arcs.push(Arc {
@@ -175,7 +170,7 @@ pub fn netgen(seed: i64, params: &NetgenParams) -> Result<NetgenResult, NetgenEr
         pick_head(params, &mut handle, i, &mut nodes_left, &mut arcs, &mut rng);
     }
 
-    Ok(NetgenResult { arcs, supply })
+    NetgenResult { arcs, supply }
 }
 
 fn create_supply(sources: usize, total_supply: i64, rng: &mut Rng, supply: &mut [i64]) {
@@ -280,7 +275,7 @@ fn pick_head(
     for _ in 0..limit {
         let index = handle.choose(rng.next(1, handle.pseudo_size() as i64) as usize);
         let mut cap = params.supply;
-        if rng.next(1, 100) <= params.capacitated {
+        if rng.next(1, 100) <= params.capacitated_pct {
             cap = rng.next(params.mincap, params.maxcap);
         }
 
